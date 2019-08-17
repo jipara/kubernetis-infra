@@ -1,8 +1,8 @@
 resource "aws_autoscaling_group" "nodes-kubernetesjipara-com" {
   name                 = "nodes.kubernetesjipara.com"
   launch_configuration = "${aws_launch_configuration.nodes-kubernetesjipara-com.id}"
-  max_size             = 2
-  min_size             = 2
+  max_size             = "${var.node_max_size}"
+  min_size             = "${var.node_min_size}"
   vpc_zone_identifier  = ["${aws_subnet.us-east-2a-kubernetesjipara-com.id}", "${aws_subnet.us-east-2b-kubernetesjipara-com.id}", "${aws_subnet.us-east-2c-kubernetesjipara-com.id}"]
 
   tag = {
