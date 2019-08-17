@@ -23,7 +23,7 @@ resource "aws_launch_configuration" "bastions-kubernetesjipara-com" {
 resource "aws_launch_configuration" "master-us-east-2a-masters-kubernetesjipara-com" {
   name_prefix                 = "master-us-east-2a.masters.kubernetesjipara.com-"
   image_id                    = "ami-0dd3b1702120579bd"
-  instance_type               = "m4.large"
+  instance_type               = "${var.master_instance_type}"
   key_name                    = "${aws_key_pair.kubernetes-kubernetesjipara-com-cf73ecb8a6fa201f8d64ad669032c485.id}"
   iam_instance_profile        = "${aws_iam_instance_profile.masters-kubernetesjipara-com.id}"
   security_groups             = ["${aws_security_group.masters-kubernetesjipara-com.id}"]
@@ -46,7 +46,7 @@ resource "aws_launch_configuration" "master-us-east-2a-masters-kubernetesjipara-
 resource "aws_launch_configuration" "master-us-east-2b-masters-kubernetesjipara-com" {
   name_prefix                 = "master-us-east-2b.masters.kubernetesjipara.com-"
   image_id                    = "ami-0dd3b1702120579bd"
-  instance_type               = "m4.large"
+  instance_type               = "${var.master_instance_type}"
   key_name                    = "${aws_key_pair.kubernetes-kubernetesjipara-com-cf73ecb8a6fa201f8d64ad669032c485.id}"
   iam_instance_profile        = "${aws_iam_instance_profile.masters-kubernetesjipara-com.id}"
   security_groups             = ["${aws_security_group.masters-kubernetesjipara-com.id}"]
@@ -69,7 +69,7 @@ resource "aws_launch_configuration" "master-us-east-2b-masters-kubernetesjipara-
 resource "aws_launch_configuration" "master-us-east-2c-masters-kubernetesjipara-com" {
   name_prefix                 = "master-us-east-2c.masters.kubernetesjipara.com-"
   image_id                    = "ami-0dd3b1702120579bd"
-  instance_type               = "m4.large"
+  instance_type               = "${var.master_instance_type}"
   key_name                    = "${aws_key_pair.kubernetes-kubernetesjipara-com-cf73ecb8a6fa201f8d64ad669032c485.id}"
   iam_instance_profile        = "${aws_iam_instance_profile.masters-kubernetesjipara-com.id}"
   security_groups             = ["${aws_security_group.masters-kubernetesjipara-com.id}"]
@@ -92,7 +92,7 @@ resource "aws_launch_configuration" "master-us-east-2c-masters-kubernetesjipara-
 resource "aws_launch_configuration" "nodes-kubernetesjipara-com" {
   name_prefix                 = "nodes.kubernetesjipara.com-"
   image_id                    = "ami-0dd3b1702120579bd"
-  instance_type               = "m4.large"
+  instance_type               = "${var.node_instance_type}"
   key_name                    = "${aws_key_pair.kubernetes-kubernetesjipara-com-cf73ecb8a6fa201f8d64ad669032c485.id}"
   iam_instance_profile        = "${aws_iam_instance_profile.nodes-kubernetesjipara-com.id}"
   security_groups             = ["${aws_security_group.nodes-kubernetesjipara-com.id}"]
