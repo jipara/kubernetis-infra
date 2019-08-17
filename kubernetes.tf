@@ -1,4 +1,8 @@
 locals = {
+  bastion_autoscaling_group_ids     = ["${aws_autoscaling_group.bastions-kubernetesjipara-com.id}"]
+  bastion_security_group_ids        = ["${aws_security_group.bastion-kubernetesjipara-com.id}"]
+  bastions_role_arn                 = "${aws_iam_role.bastions-kubernetesjipara-com.arn}"
+  bastions_role_name                = "${aws_iam_role.bastions-kubernetesjipara-com.name}"
   cluster_name                      = "kubernetesjipara.com"
   master_autoscaling_group_ids      = ["${aws_autoscaling_group.master-us-east-2a-masters-kubernetesjipara-com.id}", "${aws_autoscaling_group.master-us-east-2b-masters-kubernetesjipara-com.id}", "${aws_autoscaling_group.master-us-east-2c-masters-kubernetesjipara-com.id}"]
   master_security_group_ids         = ["${aws_security_group.masters-kubernetesjipara-com.id}"]
@@ -22,6 +26,22 @@ locals = {
   subnet_utility-us-east-2c_id      = "${aws_subnet.utility-us-east-2c-kubernetesjipara-com.id}"
   vpc_cidr_block                    = "${aws_vpc.kubernetesjipara-com.cidr_block}"
   vpc_id                            = "${aws_vpc.kubernetesjipara-com.id}"
+}
+
+output "bastion_autoscaling_group_ids" {
+  value = ["${aws_autoscaling_group.bastions-kubernetesjipara-com.id}"]
+}
+
+output "bastion_security_group_ids" {
+  value = ["${aws_security_group.bastion-kubernetesjipara-com.id}"]
+}
+
+output "bastions_role_arn" {
+  value = "${aws_iam_role.bastions-kubernetesjipara-com.arn}"
+}
+
+output "bastions_role_name" {
+  value = "${aws_iam_role.bastions-kubernetesjipara-com.name}"
 }
 
 output "cluster_name" {
@@ -120,6 +140,11 @@ provider "aws" {
   region = "us-east-2"
 }
 
+resource "aws_autoscaling_attachment" "bastions-kubernetesjipara-com" {
+  elb                    = "${aws_elb.bastion-kubernetesjipara-com.id}"
+  autoscaling_group_name = "${aws_autoscaling_group.bastions-kubernetesjipara-com.id}"
+}
+
 resource "aws_autoscaling_attachment" "master-us-east-2a-masters-kubernetesjipara-com" {
   elb                    = "${aws_elb.api-kubernetesjipara-com.id}"
   autoscaling_group_name = "${aws_autoscaling_group.master-us-east-2a-masters-kubernetesjipara-com.id}"
@@ -133,6 +158,41 @@ resource "aws_autoscaling_attachment" "master-us-east-2b-masters-kubernetesjipar
 resource "aws_autoscaling_attachment" "master-us-east-2c-masters-kubernetesjipara-com" {
   elb                    = "${aws_elb.api-kubernetesjipara-com.id}"
   autoscaling_group_name = "${aws_autoscaling_group.master-us-east-2c-masters-kubernetesjipara-com.id}"
+}
+
+resource "aws_autoscaling_group" "bastions-kubernetesjipara-com" {
+  name                 = "bastions.kubernetesjipara.com"
+  launch_configuration = "${aws_launch_configuration.bastions-kubernetesjipara-com.id}"
+  max_size             = 1
+  min_size             = 1
+  vpc_zone_identifier  = ["${aws_subnet.utility-us-east-2a-kubernetesjipara-com.id}", "${aws_subnet.utility-us-east-2b-kubernetesjipara-com.id}", "${aws_subnet.utility-us-east-2c-kubernetesjipara-com.id}"]
+
+  tag = {
+    key                 = "KubernetesCluster"
+    value               = "kubernetesjipara.com"
+    propagate_at_launch = true
+  }
+
+  tag = {
+    key                 = "Name"
+    value               = "bastions.kubernetesjipara.com"
+    propagate_at_launch = true
+  }
+
+  tag = {
+    key                 = "k8s.io/cluster-autoscaler/node-template/label/kops.k8s.io/instancegroup"
+    value               = "bastions"
+    propagate_at_launch = true
+  }
+
+  tag = {
+    key                 = "k8s.io/role/bastion"
+    value               = "1"
+    propagate_at_launch = true
+  }
+
+  metrics_granularity = "1Minute"
+  enabled_metrics     = ["GroupDesiredCapacity", "GroupInServiceInstances", "GroupMaxSize", "GroupMinSize", "GroupPendingInstances", "GroupStandbyInstances", "GroupTerminatingInstances", "GroupTotalInstances"]
 }
 
 resource "aws_autoscaling_group" "master-us-east-2a-masters-kubernetesjipara-com" {
@@ -425,6 +485,41 @@ resource "aws_elb" "api-kubernetesjipara-com" {
   }
 }
 
+resource "aws_elb" "bastion-kubernetesjipara-com" {
+  name = "bastion-kubernetesjipara--vj1s5m"
+
+  listener = {
+    instance_port     = 22
+    instance_protocol = "TCP"
+    lb_port           = 22
+    lb_protocol       = "TCP"
+  }
+
+  security_groups = ["${aws_security_group.bastion-elb-kubernetesjipara-com.id}"]
+  subnets         = ["${aws_subnet.utility-us-east-2a-kubernetesjipara-com.id}", "${aws_subnet.utility-us-east-2b-kubernetesjipara-com.id}", "${aws_subnet.utility-us-east-2c-kubernetesjipara-com.id}"]
+
+  health_check = {
+    target              = "TCP:22"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    interval            = 10
+    timeout             = 5
+  }
+
+  idle_timeout = 300
+
+  tags = {
+    KubernetesCluster                            = "kubernetesjipara.com"
+    Name                                         = "bastion.kubernetesjipara.com"
+    "kubernetes.io/cluster/kubernetesjipara.com" = "owned"
+  }
+}
+
+resource "aws_iam_instance_profile" "bastions-kubernetesjipara-com" {
+  name = "bastions.kubernetesjipara.com"
+  role = "${aws_iam_role.bastions-kubernetesjipara-com.name}"
+}
+
 resource "aws_iam_instance_profile" "masters-kubernetesjipara-com" {
   name = "masters.kubernetesjipara.com"
   role = "${aws_iam_role.masters-kubernetesjipara-com.name}"
@@ -435,6 +530,11 @@ resource "aws_iam_instance_profile" "nodes-kubernetesjipara-com" {
   role = "${aws_iam_role.nodes-kubernetesjipara-com.name}"
 }
 
+resource "aws_iam_role" "bastions-kubernetesjipara-com" {
+  name               = "bastions.kubernetesjipara.com"
+  assume_role_policy = "${file("${path.module}/data/aws_iam_role_bastions.kubernetesjipara.com_policy")}"
+}
+
 resource "aws_iam_role" "masters-kubernetesjipara-com" {
   name               = "masters.kubernetesjipara.com"
   assume_role_policy = "${file("${path.module}/data/aws_iam_role_masters.kubernetesjipara.com_policy")}"
@@ -443,6 +543,12 @@ resource "aws_iam_role" "masters-kubernetesjipara-com" {
 resource "aws_iam_role" "nodes-kubernetesjipara-com" {
   name               = "nodes.kubernetesjipara.com"
   assume_role_policy = "${file("${path.module}/data/aws_iam_role_nodes.kubernetesjipara.com_policy")}"
+}
+
+resource "aws_iam_role_policy" "bastions-kubernetesjipara-com" {
+  name   = "bastions.kubernetesjipara.com"
+  role   = "${aws_iam_role.bastions-kubernetesjipara-com.name}"
+  policy = "${file("${path.module}/data/aws_iam_role_policy_bastions.kubernetesjipara.com_policy")}"
 }
 
 resource "aws_iam_role_policy" "masters-kubernetesjipara-com" {
@@ -470,6 +576,28 @@ resource "aws_internet_gateway" "kubernetesjipara-com" {
 resource "aws_key_pair" "kubernetes-kubernetesjipara-com-cf73ecb8a6fa201f8d64ad669032c485" {
   key_name   = "kubernetes.kubernetesjipara.com-cf:73:ec:b8:a6:fa:20:1f:8d:64:ad:66:90:32:c4:85"
   public_key = "${file("${path.module}/data/aws_key_pair_kubernetes.kubernetesjipara.com-cf73ecb8a6fa201f8d64ad669032c485_public_key")}"
+}
+
+resource "aws_launch_configuration" "bastions-kubernetesjipara-com" {
+  name_prefix                 = "bastions.kubernetesjipara.com-"
+  image_id                    = "ami-0dd3b1702120579bd"
+  instance_type               = "t2.micro"
+  key_name                    = "${aws_key_pair.kubernetes-kubernetesjipara-com-cf73ecb8a6fa201f8d64ad669032c485.id}"
+  iam_instance_profile        = "${aws_iam_instance_profile.bastions-kubernetesjipara-com.id}"
+  security_groups             = ["${aws_security_group.bastion-kubernetesjipara-com.id}"]
+  associate_public_ip_address = true
+
+  root_block_device = {
+    volume_type           = "gp2"
+    volume_size           = 32
+    delete_on_termination = true
+  }
+
+  lifecycle = {
+    create_before_destroy = true
+  }
+
+  enable_monitoring = false
 }
 
 resource "aws_launch_configuration" "master-us-east-2a-masters-kubernetesjipara-com" {
@@ -631,11 +759,24 @@ resource "aws_route53_record" "api-kubernetesjipara-com" {
     evaluate_target_health = false
   }
 
-  zone_id = "/hostedzone/Z2S3A8LGONQBVO"
+  zone_id = "/hostedzone/Z39I686TO3G39V"
 }
 
-resource "aws_route53_zone_association" "Z2S3A8LGONQBVO" {
-  zone_id = "/hostedzone/Z2S3A8LGONQBVO"
+resource "aws_route53_record" "bastion-kubernetesjipara-com" {
+  name = "bastion.kubernetesjipara.com"
+  type = "A"
+
+  alias = {
+    name                   = "${aws_elb.bastion-kubernetesjipara-com.dns_name}"
+    zone_id                = "${aws_elb.bastion-kubernetesjipara-com.zone_id}"
+    evaluate_target_health = false
+  }
+
+  zone_id = "/hostedzone/Z39I686TO3G39V"
+}
+
+resource "aws_route53_zone_association" "Z39I686TO3G39V" {
+  zone_id = "/hostedzone/Z39I686TO3G39V"
   vpc_id  = "${aws_vpc.kubernetesjipara-com.id}"
 }
 
@@ -725,6 +866,30 @@ resource "aws_security_group" "api-elb-kubernetesjipara-com" {
   }
 }
 
+resource "aws_security_group" "bastion-elb-kubernetesjipara-com" {
+  name        = "bastion-elb.kubernetesjipara.com"
+  vpc_id      = "${aws_vpc.kubernetesjipara-com.id}"
+  description = "Security group for bastion ELB"
+
+  tags = {
+    KubernetesCluster                            = "kubernetesjipara.com"
+    Name                                         = "bastion-elb.kubernetesjipara.com"
+    "kubernetes.io/cluster/kubernetesjipara.com" = "owned"
+  }
+}
+
+resource "aws_security_group" "bastion-kubernetesjipara-com" {
+  name        = "bastion.kubernetesjipara.com"
+  vpc_id      = "${aws_vpc.kubernetesjipara-com.id}"
+  description = "Security group for bastion"
+
+  tags = {
+    KubernetesCluster                            = "kubernetesjipara.com"
+    Name                                         = "bastion.kubernetesjipara.com"
+    "kubernetes.io/cluster/kubernetesjipara.com" = "owned"
+  }
+}
+
 resource "aws_security_group" "masters-kubernetesjipara-com" {
   name        = "masters.kubernetesjipara.com"
   vpc_id      = "${aws_vpc.kubernetesjipara-com.id}"
@@ -783,6 +948,42 @@ resource "aws_security_group_rule" "api-elb-egress" {
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "bastion-egress" {
+  type              = "egress"
+  security_group_id = "${aws_security_group.bastion-kubernetesjipara-com.id}"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "bastion-elb-egress" {
+  type              = "egress"
+  security_group_id = "${aws_security_group.bastion-elb-kubernetesjipara-com.id}"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "bastion-to-master-ssh" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.masters-kubernetesjipara-com.id}"
+  source_security_group_id = "${aws_security_group.bastion-kubernetesjipara-com.id}"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+}
+
+resource "aws_security_group_rule" "bastion-to-node-ssh" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.nodes-kubernetesjipara-com.id}"
+  source_security_group_id = "${aws_security_group.bastion-kubernetesjipara-com.id}"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
 }
 
 resource "aws_security_group_rule" "https-api-elb-0-0-0-0--0" {
@@ -866,18 +1067,18 @@ resource "aws_security_group_rule" "node-to-master-udp-1-65535" {
   protocol                 = "udp"
 }
 
-resource "aws_security_group_rule" "ssh-external-to-master-0-0-0-0--0" {
-  type              = "ingress"
-  security_group_id = "${aws_security_group.masters-kubernetesjipara-com.id}"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+resource "aws_security_group_rule" "ssh-elb-to-bastion" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.bastion-kubernetesjipara-com.id}"
+  source_security_group_id = "${aws_security_group.bastion-elb-kubernetesjipara-com.id}"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
 }
 
-resource "aws_security_group_rule" "ssh-external-to-node-0-0-0-0--0" {
+resource "aws_security_group_rule" "ssh-external-to-bastion-elb-0-0-0-0--0" {
   type              = "ingress"
-  security_group_id = "${aws_security_group.nodes-kubernetesjipara-com.id}"
+  security_group_id = "${aws_security_group.bastion-elb-kubernetesjipara-com.id}"
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
