@@ -1,8 +1,3 @@
-
-provider "aws" {
-  region = "us-east-2"
-}
-
 resource "aws_autoscaling_attachment" "bastions-kubernetesjipara-com" {
   elb                    = "${aws_elb.bastion-kubernetesjipara-com.id}"
   autoscaling_group_name = "${aws_autoscaling_group.bastions-kubernetesjipara-com.id}"
